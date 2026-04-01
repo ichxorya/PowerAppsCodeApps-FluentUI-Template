@@ -4,30 +4,14 @@ import {
   teamsLightTheme,
   type Theme as FluentTheme,
 } from "@fluentui/react-components"
-import { createContext, useEffect, useMemo, useState, type ReactNode } from "react"
-
-export type Theme = "dark" | "light" | "system"
-type ResolvedTheme = "dark" | "light"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { ThemeProviderContext, type ResolvedTheme, type Theme } from "./theme-context"
 
 type ThemeProviderProps = {
   children: ReactNode
   defaultTheme?: Theme
   storageKey?: string
 }
-
-type ThemeProviderState = {
-  theme: Theme
-  resolvedTheme: ResolvedTheme
-  setTheme: (theme: Theme) => void
-}
-
-const initialState: ThemeProviderState = {
-  theme: "system",
-  resolvedTheme: "light",
-  setTheme: () => undefined,
-}
-
-export const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 const getSystemTheme = (): ResolvedTheme =>
   window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
@@ -40,32 +24,28 @@ export function ThemeProvider({
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
   )
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => {
+  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => {
     if (typeof window === "undefined") {
       return "light"
     }
 
-    return theme === "system" ? getSystemTheme() : theme
+    return getSystemTheme()
   })
 
   useEffect(() => {
-    if (theme !== "system") {
-      setResolvedTheme(theme)
-      return
-    }
-
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-    const syncTheme = () => {
-      setResolvedTheme(mediaQuery.matches ? "dark" : "light")
+    const handleChange = (event: MediaQueryListEvent) => {
+      setSystemTheme(event.matches ? "dark" : "light")
     }
 
-    syncTheme()
-    mediaQuery.addEventListener("change", syncTheme)
+    mediaQuery.addEventListener("change", handleChange)
 
     return () => {
-      mediaQuery.removeEventListener("change", syncTheme)
+      mediaQuery.removeEventListener("change", handleChange)
     }
-  }, [theme])
+  }, [])
+
+  const resolvedTheme: ResolvedTheme = theme === "system" ? systemTheme : theme
 
   useEffect(() => {
     const root = window.document.documentElement
